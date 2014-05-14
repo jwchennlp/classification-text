@@ -10,6 +10,7 @@ import os
 import nltk
 import pickle
 import numpy as np
+import csv
 
 def write(dic,file_name):
     pickle.dump(dic,open('./data/'+file_name,'wb'))
@@ -124,8 +125,10 @@ def cal_max_category(words,train,sta):
             count = cal_count(word,train_category)
             #拉普拉斯平滑
             #这里采用的是贝努利模型
-            pro *=(count+1)/float(sta[i]['count']+9)
-        print pro
+            '''
+            在这里做一下改进，由于分母过大，很可能导致０的出现，所以对分母进行适当的缩放．
+            '''
+            pro *=(count+1)/float(300)*(sta[0]['count']+9)/float(sta[i]['count']+9)
         if pro > max_pro:
             max_pro = pro
             max_category = i
@@ -136,21 +139,72 @@ def cal_max_category(words,train,sta):
 def cal(test,train,sta):
     predict = []
     for i in range(len(test)):
+        print('第%d个结果预测'%(i))
         words = test[i][0]
         #计算此文档在哪一类别下的概率最大
         max_category = cal_max_category(words,train,sta)
-        temp = [0 for i in range(2)]
+        temp = [0 for j in range(2)]
         temp[0] = test[i][1]
         temp[1] = max_category
         predict.append(temp)
     return predict
+#对结果进行统计
+def sta_result(predict,category,result,path):
+    result = np.array(result)
+    predict = np.array(predict)
+    evaluate = {} 
+    a,b,c=0,0,0
+    csvfile = file(path,'wb')
+    writer = csv.writer(csvfile)
+    writer.writerow(['category','precision(%)','recall(%)','recall(%)'])
+    for i in range(10):
+        s = category[i]
+        evaluate[s] = {} 
+        predict_category = predict[predict[0::,1]==str(i),0]
+        result_category = result[result[0::,1]==str(i),0]
+        hit = len(set(predict_category)&set(result_category))
+        precision = float('%.1f'%(hit/float(len(predict_category))*100))
+        recall =  float('%.1f'%(hit/float(len(result_category))*100))
+        F_1 = float('%.1f'%(2*precision*recall/(precision+recall)))
+        a += hit
+        b += len(predict_category)
+        c += len(result_category)
+        evaluate[s][0] = precision*100
+        evaluate[s][1] = recall*100
+        evaluate[s][2] = F_1
+        writer.writerow([s,precision,recall,F_1])
+        print('%s\t,%.1f\t,%.1f\t,%.1f\n'%(s,precision,recall,F_1))
+    evaluate['all'] = {}
+    p = float('%.1f'%(a/float(b)*100))
+    r = evaluate['all'][1] =  float('%.1f'%(a/float(c)*100))
+    f = evaluate['all'][2] =  2*p*r/(p+r)
+    evaluate['all'][0] = p
+    evaluate['all'][1] = r
+    evaluate['all'][2] = f
+    writer.writerow(['avearge',p,f,r])
+    print('%s\n'%(evaluate['all'].values()))
+    return evaluate
+        
+def convert(category):
+    a = dict()
+    for key,value in category.iteritems():
+        a[value] = key
+    return a
     
 if __name__=="__main__":
     train = read('train_nb')
     test = read('test_nb')
     category = read('category_nb')
+    #数字类别到字符串类别的转换
+    category_convert = convert(category)
     result = read('result_nb')
     sta = sta_count(train)
+    '''
     predict = cal(test,train,sta)
-    
     write(predict,'predict')
+    '''
+    predict = read('predict')
+    path = './data/bernoulli.csv'
+    evaluate = sta_result(predict,category_convert,result,path)
+    write(evaluate,'bernoulli_evaluate')
+    
