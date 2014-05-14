@@ -29,6 +29,7 @@ def get_file_list(path,folder):
 
 #构建训练集
 def func2(traindir):
+    stopwords = nltk.corpus.stopwords.words('english')
     folder_list = get_folder_list(traindir)
     train = []
     category = {}
@@ -43,6 +44,8 @@ def func2(traindir):
             context = f.read()
             words = nltk.word_tokenize(context)
             words = [w.lower() for w in words if w.isalpha() or w.isdigit()]
+            #进行词处理，去除停用词
+            words = list(set(words)-set(stopwords))
             #朴素贝叶斯的事件模型，需要考虑每个词在文章中出现的次数
             word_count = dict(nltk.FreqDist(words))
             temp = []
@@ -55,6 +58,7 @@ def func2(traindir):
 
 #构建测试集
 def func3(testdir,category):
+    stopwords = nltk.corpus.stopwords.words('english')
     folder_list = get_folder_list(testdir)
     test = []
     result = []
@@ -72,8 +76,12 @@ def func3(testdir,category):
             context = f.read()
             words = nltk.word_tokenize(context)
             words = [w.lower() for w in words if w.isalpha() or w.isdigit()]
+            #进行词处理，去除停用词
+            words = list(set(words)-set(stopwords))
+            #贝努利事件模型
+            word_count = dict(nltk.FreqDist(words))
             temp1 = []
-            temp1.append(words)
+            temp1.append(word_count)
             temp1.append(file)
             temp1.append(i)
             test.append(temp1)
@@ -84,11 +92,11 @@ def preprocess():
     traindir = './data/training'
     testdir = './data/test'
     train,category = func2(traindir)
-    write(train,'train_nb_eventmodel')
-    write(category,'category_nb_eventmodel')
+    write(train,'train_nb_eventmodel_stop')
+    write(category,'category_nb_eventmodel_stop')
     result,test = func3(testdir,category)
-    write(test,'test_nb_eventmodel')
-    write(result,'result_nb_eventmodel')
+    write(test,'test_nb_eventmodel_stop')
+    write(result,'result_nb_eventmodel_stop')
                         
 #统计每一种类别文档个数，及每一个类别中文档中的词汇量
 def sta_count(train):
@@ -120,7 +128,7 @@ def cal_max_category(words,train,sta):
     for i in range(10):
         train_category = train[train[0::,2]==i]
         pro = sta[i]['count']
-        for word in words:
+        for word in words.keys():
             count = cal_count(word,train_category)
             #拉普拉斯平滑
             #这里采用的是贝努利模型
@@ -128,7 +136,7 @@ def cal_max_category(words,train,sta):
             在这里做一下改进，由于分母过大，很可能导致０的出现，所以对分母进行适当的缩放．
             因为采用的是事件模型，所以分母要做改变
             '''
-            pro *=(count+1)/float(500)*(sta[0]['words']+sta[0]['all'])/float(sta[i]['words']+sta[i]['all'])
+            pro *=pow((count+1)/float(100)*(sta[0]['words']+sta[0]['all'])/float(sta[i]['words']+sta[i]['all']),words[word])
         if pro > max_pro:
             max_pro = pro
             max_category = i
@@ -140,7 +148,7 @@ def cal(test,train,sta):
     predict = []
     for i in range(len(test)):
         print('第%d个结果预测'%(i))
-        #此处的words仍代表的是词，但是训练集中的words则是词项－出现次数的词典
+        #这里的words都表示的是词项－次数
         words = test[i][0]
         #计算此文档在哪一类别下的概率最大
         max_category = cal_max_category(words,train,sta)
@@ -193,24 +201,27 @@ def convert(category):
     return a
     
 if __name__=="__main__":
+    
     '''
     preprocess()
     '''
-    train = read('train_nb_eventmodel')
-    test = read('test_nb_eventmodel')
-    category = read('category_nb_eventmodel')
+    
+    train = read('train_nb_eventmodel_stop')
+    test = read('test_nb_eventmodel_stop')
+    category = read('category_nb_eventmodel_stop')
     #数字类别到字符串类别的转换
     category_convert = convert(category)
-    result = read('result_nb_eventmodel')
+    result = read('result_nb_eventmodel_stop')
     sta = sta_count(train)
     '''
     predict = cal(test,train,sta)
-    write(predict,'predict_nb_eventmodel')
-    
+    write(predict,'predict_nb_eventmodel_stop')
     '''
     
     
-    predict = read('predict_nb_eventmodel')
-    path = './data/bernoulli_nb_enentmodel.csv'
+    
+    predict = read('predict_nb_eventmodel_stop')
+    path = './data/bernoulli_nb_enentmodel_stop.csv'
     evaluate = sta_result(predict,category_convert,result,path)
-    write(evaluate,'eventmodel_evaluate')
+    write(evaluate,'eventmodel_evaluate_stop')
+    
