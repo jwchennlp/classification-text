@@ -43,10 +43,10 @@ def func2(traindir):
             context = f.read()
             words = nltk.word_tokenize(context)
             words = [w.lower() for w in words if w.isalpha() or w.isdigit()]
-            #词只按出现与否进行处理，不考虑出现多少次
-            words = list(set(words))
+            #朴素贝叶斯的事件模型，需要考虑每个词在文章中出现的次数
+            word_count = dict(nltk.FreqDist(words))
             temp = []
-            temp.append(words)
+            temp.append(word_count)
             temp.append(file)
             temp.append(i)
             train.append(temp)
@@ -72,8 +72,6 @@ def func3(testdir,category):
             context = f.read()
             words = nltk.word_tokenize(context)
             words = [w.lower() for w in words if w.isalpha() or w.isdigit()]
-            #每个词无论出现多少次，都按出现一次处理
-            words = list(set(words))
             temp1 = []
             temp1.append(words)
             temp1.append(file)
@@ -81,17 +79,18 @@ def func3(testdir,category):
             test.append(temp1)
         i += 1
     return (result,test)
+
 def preprocess():
     traindir = './data/training'
     testdir = './data/test'
     train,category = func2(traindir)
-    write(train,'train_nb')
-    write(category,'category_nb')
+    write(train,'train_nb_eventmodel')
+    write(category,'category_nb_eventmodel')
     result,test = func3(testdir,category)
-    write(test,'test_nb')
-    write(result,'result_nb')
+    write(test,'test_nb_eventmodel')
+    write(result,'result_nb_eventmodel')
                         
-#统计每一种类别文档个数，及没一个类别中文档中的词汇量
+#统计每一种类别文档个数，及每一个类别中文档中的词汇量
 def sta_count(train):
     train = np.array(train)
     sta = {}
@@ -111,8 +110,8 @@ def sta_count(train):
 def cal_count(word,train):
     count = 0
     for doc in train:
-        if word in doc[0]:
-            count += 1
+        if word in doc[0].keys():
+            count += doc[0][word]
     return count
 #计算在哪一类别的概率最大
 def cal_max_category(words,train,sta):
@@ -127,8 +126,9 @@ def cal_max_category(words,train,sta):
             #这里采用的是贝努利模型
             '''
             在这里做一下改进，由于分母过大，很可能导致０的出现，所以对分母进行适当的缩放．
+            因为采用的是事件模型，所以分母要做改变
             '''
-            pro *=(count+1)/float(300)*(sta[0]['count']+9)/float(sta[i]['count']+9)
+            pro *=(count+1)/float(500)*(sta[0]['words']+sta[0]['all'])/float(sta[i]['words']+sta[i]['all'])
         if pro > max_pro:
             max_pro = pro
             max_category = i
@@ -140,6 +140,7 @@ def cal(test,train,sta):
     predict = []
     for i in range(len(test)):
         print('第%d个结果预测'%(i))
+        #此处的words仍代表的是词，但是训练集中的words则是词项－出现次数的词典
         words = test[i][0]
         #计算此文档在哪一类别下的概率最大
         max_category = cal_max_category(words,train,sta)
@@ -177,11 +178,11 @@ def sta_result(predict,category,result,path):
     evaluate['all'] = {}
     p = float('%.1f'%(a/float(b)*100))
     r = evaluate['all'][1] =  float('%.1f'%(a/float(c)*100))
-    f = evaluate['all'][2] =  2*p*r/(p+r)
+    f = evaluate['all'][2] =  float('%.1f'%(2*p*r/(p+r)))
     evaluate['all'][0] = p
     evaluate['all'][1] = r
     evaluate['all'][2] = f
-    writer.writerow(['avearge',p,f,r])
+    writer.writerow(['avearge',p,r,f])
     print('%s\n'%(evaluate['all'].values()))
     return evaluate
         
@@ -192,19 +193,24 @@ def convert(category):
     return a
     
 if __name__=="__main__":
-    train = read('train_nb')
-    test = read('test_nb')
-    category = read('category_nb')
+    '''
+    preprocess()
+    '''
+    train = read('train_nb_eventmodel')
+    test = read('test_nb_eventmodel')
+    category = read('category_nb_eventmodel')
     #数字类别到字符串类别的转换
     category_convert = convert(category)
-    result = read('result_nb')
+    result = read('result_nb_eventmodel')
     sta = sta_count(train)
     '''
     predict = cal(test,train,sta)
-    write(predict,'predict')
-    '''
-    predict = read('predict')
-    path = './data/bernoulli.csv'
-    evaluate = sta_result(predict,category_convert,result,path)
-    write(evaluate,'bernoulli_evaluate')
+    write(predict,'predict_nb_eventmodel')
     
+    '''
+    
+    
+    predict = read('predict_nb_eventmodel')
+    path = './data/bernoulli_nb_enentmodel.csv'
+    evaluate = sta_result(predict,category_convert,result,path)
+    write(evaluate,'eventmodel_evaluate')
