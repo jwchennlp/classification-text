@@ -42,18 +42,11 @@ def get_tokens(dir,folder_list):
     return tokens
 
 #主函数，获取训练集中的词典
-def func1(trandir,testdir):
+def func1(trandir):
     
     train_folder_list  = get_folder_list(traindir)
-    test_folder_list = get_folder_list(testdir)
-    
-    tokens1 = get_tokens(traindir,train_folder_list)
-    tokens1 = set(tokens1)
-    tokens2 = get_tokens(testdir,test_folder_list)
-    tokens2 = set(tokens2)
-    tokens = tokens1|tokens2
-    print len(tokens1)
-    print len(tokens2)
+    tokens = get_tokens(traindir,train_folder_list)
+    tokens = set(tokens)
     print len(tokens)
     pickle.dump(tokens,open('./data/tokens','wb'))
 
@@ -112,8 +105,10 @@ def func3(testdir,tokens,category):
             words = [w.lower() for w in words if w.isalpha() or w.isdigit()] 
             word_count = dict(nltk.FreqDist(words))
             for word in words:
-                loc = tokens.index(word)
-                temp1[loc] = word_count[word]
+                #here i ingore the word only occur in test
+                if word in tokens:
+                    loc = tokens.index(word)
+                    temp1[loc] = word_count[word]
             test.append(temp1)
     return (result,test)
             
@@ -125,14 +120,16 @@ def func3(testdir,tokens,category):
 if __name__=="__main__":
     traindir = './data/training'
     testdir = './data/test'
+    
+    func1(traindir)
 
     tokens = list(read('tokens'))
     
-    '''
+
     train,category=func2(traindir,tokens)
     write(train,'train')
     write(category,'category')
-    '''
+
 
     category = read('category')
     result,test = func3(testdir,tokens,category)
