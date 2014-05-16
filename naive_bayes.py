@@ -30,8 +30,8 @@ def get_file_list(path,folder):
 #构建训练集
 def func2(traindir):
     #采用卡方检验选取特征
-    tokens_all_x = read('tokens_all_x')
-    print len(tokens_all_x)
+    tokens_all_df = read('tokens_all_df')
+    print len(tokens_all_df)
     folder_list = get_folder_list(traindir)
     train = []
     category = {}
@@ -48,7 +48,7 @@ def func2(traindir):
             words = nltk.word_tokenize(context)
             words = [w.lower() for w in words if w.isalpha() or w.isdigit()]
             #在采用互信息的时候，对于文档中的词我们只需要记录互信息值足够高的词即可．
-            words = [w for w in words if w in tokens_all_x]
+            words = [w for w in words if w in tokens_all_df]
             #朴素贝叶斯的事件模型，需要考虑每个词在文章中出现的次数
             word_count = dict(nltk.FreqDist(words))
             temp = []
@@ -61,7 +61,7 @@ def func2(traindir):
 
 #构建测试集
 def func3(testdir,category):
-    tokens_all_x = read('tokens_all_x')
+    tokens_all_df = read('tokens_all_df')
     category = read('category_nb_eventmodel')
     folder_list = get_folder_list(testdir)
     test = []
@@ -81,7 +81,7 @@ def func3(testdir,category):
             words = nltk.word_tokenize(context)
             words = [w.lower() for w in words if w.isalpha() or w.isdigit()]
             
-            words = [w for w in words if w in tokens_all_x]
+            words = [w for w in words if w in tokens_all_df]
             #贝努利事件模型
             word_count = dict(nltk.FreqDist(words))
             temp1 = []
@@ -94,15 +94,15 @@ def preprocess():
     traindir = './data/training'
     testdir = './data/test'
     train,category = func2(traindir)
-    write(train,'train_nb_eventmodel_x')
+    write(train,'train_nb_eventmodel_df')
     write(category,'category_nb_eventmodel')
     result,test = func3(testdir,category)
-    write(test,'test_nb_eventmodel_x')
-    write(result,'result_nb_eventmodel_x')
+    write(test,'test_nb_eventmodel_df')
+    write(result,'result_nb_eventmodel_df')
                         
 #统计每一种类别文档个数，及每一个类别中文档中的词汇量
 def sta_count(train):
-    tokens_all_x = read('tokens_all_x')
+    tokens_all_df = read('tokens_all_df')
     train = np.array(train)
     sta = {}
     for i in range(10):
@@ -112,8 +112,8 @@ def sta_count(train):
         tokens = []
         alltokens = 0
         for doc in train_category:
-            alltokens += len([w for w in doc[0] if w in tokens_all_x])
-            tokens = set(tokens)|set([w for w in doc[0] if w in tokens_all_x])
+            alltokens += len([w for w in doc[0] if w in tokens_all_df])
+            tokens = set(tokens)|set([w for w in doc[0] if w in tokens_all_df])
         sta[i]['words'] = len(tokens)
         sta[i]['all'] = alltokens
     return sta
@@ -209,21 +209,21 @@ if __name__=="__main__":
     preprocess()
     
     
-    train = read('train_nb_eventmodel_x')
-    test = read('test_nb_eventmodel_x')
+    train = read('train_nb_eventmodel_df')
+    test = read('test_nb_eventmodel_df')
     category = read('category_nb_eventmodel')
     #数字类别到字符串类别的转换
     category_convert = convert(category)
-    result = read('result_nb_eventmodel_x')
+    result = read('result_nb_eventmodel_df')
     sta = sta_count(train)
     
     
     predict = cal(test,train,sta)
-    write(predict,'predict_nb_eventmodel_x')
+    write(predict,'predict_nb_eventmodel_df')
     
     
-    predict = read('predict_nb_eventmodel_x')
-    path = './data/bernoulli_nb_enentmodel_x.csv'
+    predict = read('predict_nb_eventmodel_df')
+    path = './data/bernoulli_nb_enentmodel_df.csv'
     evaluate = sta_result(predict,category_convert,result,path)
-    write(evaluate,'eventmodel_evaluate_x')
+    write(evaluate,'eventmodel_evaluate_df')
 

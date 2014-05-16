@@ -68,10 +68,26 @@ def sta_token_category(token,train,i):
     N[0][1] = f_in_count
     return N
 
+#统计某一个词在类别i下的多少文档中出现
+def cal_df_count(token,train,i):
+    count = 0
+    t_category = train[train[0::,2]==i,0]
+    for doc in t_category:
+        print doc
+        if token in doc:
+            count += 1
+    return count
 #频率统计
 def df(train,sta,category_tokens):
     train = np.array(train)
     tokens_df = {}
+    for i in range(10):
+        tokens_df[i] = {}
+        #计算每个类别下词的频率
+        for token in category_tokens[i]:
+            count  = cal_df_count(token,train,i)
+            tokens_df[i][token] = count
+    return tokens_df
     
 #卡方统计
 def x_2(train,sta,category_tokens):
@@ -178,16 +194,33 @@ def x_2func(traindir,testdir):
     nb.write(tokens_all_x,'tokens_all_x')
     
 def dffunc():
+    #这里先使用文档频率，需要统计在某一类别下词t在多少个文档中出现
+
     train = nb.read('train_nb_eventmodel')
     sta = nb.sta_count(train)
     category_tokens = get_category_tokens()
-    tokens_df = cal_df(train,sta,category_tokens)
+    tokens_df = df(train,sta,category_tokens)
     nb.write(tokens_df,'tokens_df')
+
+    category = nb.read('category_nb_eventmodel')
+    tokens_df = nb.read('tokens_df')
+    category_convert = nb.convert(category)
+    tokens_all_df = []
+    df_category = {}
+    for i in range(10):
+        tokens = sorted(tokens_df[i],key=tokens_df[i].get,reverse = True)
+        df_category[i] = tokens[:50]
+        print df_category[i]
+        tokens_all_df = set(tokens_all_df)|set(df_category[i])
+
+    nb.write(df_category,'df_category')
+    nb.write(tokens_all_df,'tokens_all_df')
+
 if __name__=="__main__":
     traindir = './data/training'
     testdir = './data/test'
     
-    x_2func(traindir,testdir)
+    dffunc()
     
 
     
