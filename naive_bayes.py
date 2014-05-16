@@ -10,7 +10,7 @@ import os
 import nltk
 import pickle
 import numpy as np
-import csv
+import csv,math
 
 def write(dic,file_name):
     pickle.dump(dic,open('./data/'+file_name,'wb'))
@@ -29,8 +29,9 @@ def get_file_list(path,folder):
 
 #构建训练集
 def func2(traindir):
-    mi_category = read('mi_category')
-    stopwords = nltk.corpus.stopwords.words('english')
+    #采用卡方检验选取特征
+    tokens_all_x = read('tokens_all_x')
+    print len(tokens_all_x)
     folder_list = get_folder_list(traindir)
     train = []
     category = {}
@@ -40,7 +41,6 @@ def func2(traindir):
         category[folder] = i
         file_list = get_file_list(traindir,folder)
         #某一类别的互信息较高的词
-        mi_tokens = mi_category[i]
         for file in file_list:
             file_path = traindir+'/'+folder+'/'+file
             f = open(file_path,'r')
@@ -48,7 +48,7 @@ def func2(traindir):
             words = nltk.word_tokenize(context)
             words = [w.lower() for w in words if w.isalpha() or w.isdigit()]
             #在采用互信息的时候，对于文档中的词我们只需要记录互信息值足够高的词即可．
-            words = [w for w in words if w in mi_tokens]
+            words = [w for w in words if w in tokens_all_x]
             #朴素贝叶斯的事件模型，需要考虑每个词在文章中出现的次数
             word_count = dict(nltk.FreqDist(words))
             temp = []
@@ -61,9 +61,8 @@ def func2(traindir):
 
 #构建测试集
 def func3(testdir,category):
-    mi_category = read('mi_category')
+    tokens_all_x = read('tokens_all_x')
     category = read('category_nb_eventmodel')
-    stopwords = nltk.corpus.stopwords.words('english')
     folder_list = get_folder_list(testdir)
     test = []
     result = []
@@ -71,7 +70,6 @@ def func3(testdir,category):
         print('遍历%s目录下的文件'%(folder))
         des_category = category[folder]
         file_list = get_file_list(testdir,folder)
-        mi_tokens = mi_category[category[folder]]
         for file in file_list:
             temp = [0 for j in range(2)]
             temp[0] = file
@@ -83,7 +81,7 @@ def func3(testdir,category):
             words = nltk.word_tokenize(context)
             words = [w.lower() for w in words if w.isalpha() or w.isdigit()]
             
-            words = [w for w in words if w in mi_tokens]
+            words = [w for w in words if w in tokens_all_x]
             #贝努利事件模型
             word_count = dict(nltk.FreqDist(words))
             temp1 = []
@@ -96,14 +94,15 @@ def preprocess():
     traindir = './data/training'
     testdir = './data/test'
     train,category = func2(traindir)
-    write(train,'train_nb_eventmodel_mi')
+    write(train,'train_nb_eventmodel_x')
     write(category,'category_nb_eventmodel')
     result,test = func3(testdir,category)
-    write(test,'test_nb_eventmodel_mi')
-    write(result,'result_nb_eventmodel_mi')
+    write(test,'test_nb_eventmodel_x')
+    write(result,'result_nb_eventmodel_x')
                         
 #统计每一种类别文档个数，及每一个类别中文档中的词汇量
 def sta_count(train):
+    tokens_all_x = read('tokens_all_x')
     train = np.array(train)
     sta = {}
     for i in range(10):
@@ -113,8 +112,8 @@ def sta_count(train):
         tokens = []
         alltokens = 0
         for doc in train_category:
-            alltokens += len(doc[0])
-            tokens = set(tokens)|set(doc[0])
+            alltokens += len([w for w in doc[0] if w in tokens_all_x])
+            tokens = set(tokens)|set([w for w in doc[0] if w in tokens_all_x])
         sta[i]['words'] = len(tokens)
         sta[i]['all'] = alltokens
     return sta
@@ -127,11 +126,11 @@ def cal_count(word,train):
     return count
 #计算在哪一类别的概率最大
 def cal_max_category(words,train,sta):
-    max_pro,max_category = 0,10
+    max_pro,max_category = -1e100,10
     train = np.array(train)
     for i in range(10):
         train_category = train[train[0::,2]==i]
-        pro = sta[i]['count']
+        pro = math.log(sta[i]['count'],2)
         for word in words.keys():
             count = cal_count(word,train_category)
             #拉普拉斯平滑
@@ -140,7 +139,7 @@ def cal_max_category(words,train,sta):
             在这里做一下改进，由于分母过大，很可能导致０的出现，所以对分母进行适当的缩放．
             因为采用的是事件模型，所以分母要做改变
             '''
-            pro *=pow((count+1)/float(100)*(sta[0]['words']+sta[0]['all'])/float(sta[i]['words']+sta[i]['all']),words[word])
+            pro += words[word]*math.log((count+1)/float(sta[i]['all']+sta[i]['words']),2)
         if pro > max_pro:
             max_pro = pro
             max_category = i
@@ -152,7 +151,7 @@ def cal(test,train,sta):
     predict = []
     for i in range(len(test)):
         print('第%d个结果预测'%(i))
-        #这里的words都表示的是词项－次数
+        #这里的words都表示的是词项－次数词典
         words = test[i][0]
         #计算此文档在哪一类别下的概率最大
         max_category = cal_max_category(words,train,sta)
@@ -163,18 +162,18 @@ def cal(test,train,sta):
     return predict
 #对结果进行统计
 def sta_result(predict,category,result,path):
-    result = np.array(result)
-    predict = np.array(predict)
     evaluate = {} 
     a,b,c=0,0,0
     csvfile = file(path,'wb')
     writer = csv.writer(csvfile)
+    print len([predict[j][0] for j in range(len(predict)) if predict[j][1]==10])
     writer.writerow(['category','precision(%)','recall(%)','recall(%)'])
     for i in range(10):
         s = category[i]
         evaluate[s] = {} 
-        predict_category = predict[predict[0::,1]==str(i),0]
-        result_category = result[result[0::,1]==str(i),0]
+        predict_category = [predict[j][0] for j in range(len(predict)) if predict[j][1]==i]
+        result_category = [result[k][0] for k in range(len(result)) if result[k][1]==i]
+
         hit = len(set(predict_category)&set(result_category))
         precision = float('%.1f'%(hit/float(len(predict_category))*100))
         recall =  float('%.1f'%(hit/float(len(result_category))*100))
@@ -206,26 +205,25 @@ def convert(category):
     
 if __name__=="__main__":
     
-    '''
+    
     preprocess()
     
-    '''
-    train = read('train_nb_eventmodel_mi')
-    test = read('test_nb_eventmodel_mi')
+    
+    train = read('train_nb_eventmodel_x')
+    test = read('test_nb_eventmodel_x')
     category = read('category_nb_eventmodel')
     #数字类别到字符串类别的转换
     category_convert = convert(category)
-    result = read('result_nb_eventmodel_mi')
+    result = read('result_nb_eventmodel_x')
     sta = sta_count(train)
     
+    
     predict = cal(test,train,sta)
-    write(predict,'predict_nb_eventmodel_mi')
+    write(predict,'predict_nb_eventmodel_x')
     
     
-    
-    
-    predict = read('predict_nb_eventmodel_mi')
-    path = './data/bernoulli_nb_enentmodel_mi.csv'
+    predict = read('predict_nb_eventmodel_x')
+    path = './data/bernoulli_nb_enentmodel_x.csv'
     evaluate = sta_result(predict,category_convert,result,path)
-    write(evaluate,'eventmodel_evaluate_mi')
-    
+    write(evaluate,'eventmodel_evaluate_x')
+

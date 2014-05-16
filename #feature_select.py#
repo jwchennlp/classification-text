@@ -72,6 +72,11 @@ def sta_token_category(token,train,i):
 def df(train,sta,category_tokens):
     train = np.array(train)
     tokens_df = {}
+    for i in range(10):
+        token_df[i] = {}
+        #计算每个类别下词的频率
+        for token in category_tokens[i]:
+            
     
 #卡方统计
 def x_2(train,sta,category_tokens):
