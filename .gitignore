@@ -4,12 +4,10 @@ __pycache__/
 
 # C extensions
 *.so
-<<<<<<< HEAD
 /data/
+*#
 *~
-=======
 
->>>>>>> 91fb205d7370af1d3cd35f42f02f2223d547c4d0
 # Distribution / packaging
 .Python
 env/
