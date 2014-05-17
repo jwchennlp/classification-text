@@ -30,6 +30,18 @@ def get_category_tokens():
         tokens = set(tokens)
         category_tokens[i] = tokens
     return category_tokens
+#在频度统计时，要获取的是整个文档集的词典
+def get_all_tokens():
+    train = nb.read('train_nb')
+    train = np.array(train)
+    tokens = []
+    for i in range(10):
+        train_category = train[train[0::,2]==i,0]
+        for token in train_category:
+            tokens = set(token)|set(tokens)
+    tokens = set(tokens)
+    print len(tokens)
+    return tokens
 #互信息选取特征
 def mi(train,sta,category_tokens):
     train = np.array(train)
@@ -69,25 +81,65 @@ def sta_token_category(token,train,i):
     return N
 
 #统计某一个词在类别i下的多少文档中出现
-def cal_df_count(token,train,i):
+def cal_df_count(token,train):
     count = 0
-    t_category = train[train[0::,2]==i,0]
-    for doc in t_category:
-        print doc
-        if token in doc:
+    for doc in train:
+        if token in doc[0].keys():
             count += 1
     return count
 #频率统计
-def df(train,sta,category_tokens):
+def df(train,sta,all_tokens):
     train = np.array(train)
     tokens_df = {}
-    for i in range(10):
-        tokens_df[i] = {}
-        #计算每个类别下词的频率
-        for token in category_tokens[i]:
-            count  = cal_df_count(token,train,i)
-            tokens_df[i][token] = count
+    i = 1
+    for token in all_tokens:
+        print('遍历第%d个词'%(i))
+        count = cal_df_count(token,train)
+        tokens_df[token] = count
+        i += 1
     return tokens_df
+def cal_entropy(train):
+    category = []
+    for i in range(10):
+        a = train[train[0::,2]==i,0]
+        category.append(len(a))
+    count = sum(category)
+    entropy = 0
+    for i in category:
+        if i !=0:
+            entropy += -i/float(count)*math.log(i/float(count),2)
+    return entropy
+#文档集关于词项t的条件熵
+def cal_gaininfo(token,train):
+    t_category,nott_category = [],[]
+    for doc in train:
+        if token in doc[0].keys():
+            t_category.append(doc)
+        else:
+            nott_category.append(doc)
+    t_category = np.array(t_category)
+    nott_category = np.array(nott_category)
+    entropy1 = cal_entropy(t_category)
+    entropy2 = cal_entropy(nott_category)
+    entropy = len(t_category)/float(len(train))*entropy1+len(nott_category)/float(len(train))*entropy2
+    return entropy
+#信息增益
+def gi(train,sta,all_tokens):
+    train = np.array(train)
+    #文档集下类别的熵
+    
+    entropy = cal_entropy(train)
+    print entropy
+
+    tokens_gi = {}
+    i = 1
+    for token in all_tokens:
+        print ('遍历第%d个词'%(i))
+        condition_entropy = cal_gaininfo(token,train)
+        tokens_gi[token] = entropy - condition_entropy
+        i += 1
+    return tokens_gi
+
     
 #卡方统计
 def x_2(train,sta,category_tokens):
@@ -195,32 +247,52 @@ def x_2func(traindir,testdir):
     
 def dffunc():
     #这里先使用文档频率，需要统计在某一类别下词t在多少个文档中出现
-
+    '''
     train = nb.read('train_nb_eventmodel')
     sta = nb.sta_count(train)
-    category_tokens = get_category_tokens()
-    tokens_df = df(train,sta,category_tokens)
+    all_tokens = get_all_tokens()
+    tokens_df = df(train,sta,all_tokens)
     nb.write(tokens_df,'tokens_df')
-
+    '''
     category = nb.read('category_nb_eventmodel')
     tokens_df = nb.read('tokens_df')
     category_convert = nb.convert(category)
     tokens_all_df = []
     df_category = {}
     for i in range(10):
-        tokens = sorted(tokens_df[i],key=tokens_df[i].get,reverse = True)
-        df_category[i] = tokens[:50]
-        print df_category[i]
+        tokens = sorted(tokens_df,key=tokens_df.get,reverse = True)
+        df_category[i] = tokens[:200]
         tokens_all_df = set(tokens_all_df)|set(df_category[i])
+    print tokens_all_df
 
     nb.write(df_category,'df_category')
     nb.write(tokens_all_df,'tokens_all_df')
 
+#用信息增益实现特征抽取
+def gifunc():
+    train = nb.read('train_nb_eventmodel')
+    sta = nb.sta_count(train)
+    all_tokens = get_all_tokens()
+    tokens_gi = gi(train,sta,all_tokens)
+    nb.write(tokens_gi,'tokens_gi')
+
+    category = nb.read('category_nb_eventmodel')
+    tokens_gi = nb.read('tokens_gi')
+    category_convert = nb.convert(category)
+    tokens_all_gi = []
+    gi_category = {}
+    for i in range(10):
+        tokens = sorted(tokens_gi,key=tokens_gi.get,reverse=True)
+        gi_category[i] = tokens[:100]
+        tokens_all_gi = set(tokens_all_gi)|set(gi_category[i])
+    print tokens_all_gi
+    nb.write(gi_category,'gi_category')
+    nb.write(tokens_all_gi,'tokens_all_gi')
 if __name__=="__main__":
     traindir = './data/training'
     testdir = './data/test'
     
-    dffunc()
+    gifunc()
     
 
     
