@@ -29,13 +29,13 @@ def get_file_list(path,folder):
 
 #构建训练集
 def func2(traindir):
-    #采用卡方检验选取特征
-    tokens_all_df = read('tokens_all_df')
-    print len(tokens_all_df)
+    #采用卡方检验选取特征,向量空间模型
+    tokens_all_x = list(read('tokens_all_x'))
     folder_list = get_folder_list(traindir)
-    train = []
+    train_x,train_y = [],[]
     category = {}
     i = 0
+    length = len(tokens_all_x)
     for folder in folder_list:
         print('遍历%s目录下的文件'%(folder))
         category[folder] = i
@@ -43,29 +43,32 @@ def func2(traindir):
         #某一类别的互信息较高的词
         for file in file_list:
             file_path = traindir+'/'+folder+'/'+file
+            #建立一个向量，前部分用于表示特征，后部分表示类别
+            vector = [0 for j in range(length)]
             f = open(file_path,'r')
             context = f.read()
             words = nltk.word_tokenize(context)
             words = [w.lower() for w in words if w.isalpha() or w.isdigit()]
             #在采用互信息的时候，对于文档中的词我们只需要记录互信息值足够高的词即可．
-            words = [w for w in words if w in tokens_all_df]
+            words = [w for w in words if w in tokens_all_x]
             #朴素贝叶斯的事件模型，需要考虑每个词在文章中出现的次数
             word_count = dict(nltk.FreqDist(words))
-            temp = []
-            temp.append(word_count)
-            temp.append(file)
-            temp.append(i)
-            train.append(temp)
+            for word in word_count.keys():
+                loc = tokens_all_x.index(word)
+                vector[loc] = word_count[word]
+            train_y.append(i)
+            train_x.append(vector)
         i += 1
-    return (train,category)
+    return (train_x,train_y,category)
 
 #构建测试集
 def func3(testdir,category):
-    tokens_all_df = read('tokens_all_df')
+    tokens_all_x = list(read('tokens_all_x'))
     category = read('category_nb_eventmodel')
     folder_list = get_folder_list(testdir)
-    test = []
+    test_x,test_file = [],[]
     result = []
+    length = len(tokens_all_x)
     for folder in folder_list:
         print('遍历%s目录下的文件'%(folder))
         des_category = category[folder]
@@ -81,14 +84,15 @@ def func3(testdir,category):
             words = nltk.word_tokenize(context)
             words = [w.lower() for w in words if w.isalpha() or w.isdigit()]
             
-            words = [w for w in words if w in tokens_all_df]
-            #贝努利事件模型
+            words = [w for w in words if w in tokens_all_x]
             word_count = dict(nltk.FreqDist(words))
-            temp1 = []
-            temp1.append(word_count)
-            temp1.append(file)
-            test.append(temp1)
-    return (result,test)
+            vector = [0 for j in range(length)]
+            for word in word_count.keys():
+                loc = tokens_all_x.index(word)
+                vector[loc] = word_count[word]
+            test_x.append(vector)
+            test_file.append(file)
+    return (result,test_x,test_file)
 
 def preprocess():
     traindir = './data/training'
@@ -171,7 +175,7 @@ def sta_result(predict,category,result,path):
     for i in range(10):
         s = category[i]
         evaluate[s] = {} 
-        predict_category = [predict[j][0] for j in range(len(predict)) if predict[j][1]==i]
+        predict_category = [predict[j][0] for j in range(len(predict)) if predict[j][1]==str(i)]
         result_category = [result[k][0] for k in range(len(result)) if result[k][1]==i]
 
         hit = len(set(predict_category)&set(result_category))

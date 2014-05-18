@@ -109,7 +109,6 @@ def func3(testdir,tokens,category):
                     loc = tokens.index(word)
                     temp1[loc] = word_count[word]
             test_x.append(temp1)
-            break
     return (result,test_x,test_file)
             
            

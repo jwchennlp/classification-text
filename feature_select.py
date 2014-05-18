@@ -292,7 +292,7 @@ if __name__=="__main__":
     traindir = './data/training'
     testdir = './data/test'
     
-    gifunc()
+    x_2func(traindir,testdir)
     
 
     
