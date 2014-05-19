@@ -11,6 +11,7 @@ import numpy as np
 import naive_bayes as nb
 import text_vector as vec
 from sklearn.linear_model import LogisticRegression
+import random
 
 def preprocess():
     traindir = './data/training'
@@ -94,6 +95,55 @@ def calj(binary_y,h,m):
                 j += -np.log2(1-h[index])
     j = j/float(m)
     return j
+def sto_logistic():
+    train_x = nb.read('train_x')
+    train_y = nb.read('train_y')
+    category = nb.read('category')
+    result =nb.read('result')
+    test_x = nb.read('test_x')
+    test_file = nb.read('test_file')
+    m,n=train_x.shape
+    temp = np.ones((m,1))
+    train_x = np.column_stack((temp,train_x))
+    
+    temp = np.ones((len(test_x),1))
+    test_x = np.column_stack((temp,test_x))
+    
+    predict = np.zeros((len(test_x),1))
+    train_x = np.mat(train_x)
+    train_y = np.mat(train_y).transpose()
+    test_x = np.mat(test_x)
+    #由于要实现多分类，我们可以通过多个二分类来实现预测
+    for i in range(10):
+        binary_y = np.mat(np.zeros((m,1)).astype(int))
+        for index in range(len(train_y)):
+            if train_y[index]==i:
+                binary_y[index]=1
+            else:
+                binary_y[index]=0
+        weight = np.mat(np.ones((n+1,1)))
+        alpha = 0.001
+        maxitem =5000
+        for k in range(maxitem):
+            index = random.randrange(m)
+            h = sigmoid(train_x[index]*weight)
+            error = h - binary_y[index]
+            weight -= alpha*(train_x[index].transpose()*error)
+        binary_predict = test_x*weight
+        for index in range(len(binary_predict)):
+            if binary_predict[index]>0:
+                predict[index]=i
+
+    predict = np.array(predict).astype(int)
+    test_file = np.array(test_file)
+    predict = np.column_stack((test_file,predict))
+    
+    category = nb.read('category_nb_eventmodel')
+    category_convert = nb.convert(category)
+    result = nb.read('result')
+    path = './data/logistic_l1.csv'
+    evaluate = nb.sta_result(predict,category_convert,result,path)
+            
 def logistic_own():
     train_x = nb.read('train_x')
     train_y = nb.read('train_y')
@@ -146,7 +196,7 @@ def logistic_own():
     evaluate = nb.sta_result(predict,category_convert,result,path)
 
 if __name__=="__main__":
-    choice = raw_input('1.logistic regression in sklearn with l1\n2. logistic regression in vector space model with x^2\n3.logistic regression on my own way\n4.preprocess\n')
+    choice = raw_input('1.logistic regression in sklearn with l1\n2. logistic regression in vector space model with x^2\n3.logistic regression on my own way\n4.preprocess\n5.stochastic gradient descent\n')
     if choice == str(1):
         logistic_l1()
     elif choice == str(2):
@@ -155,3 +205,5 @@ if __name__=="__main__":
         logistic_own()
     elif choice == str(4):
         preprocess()
+    elif choice == str(5):
+        sto_logistic()

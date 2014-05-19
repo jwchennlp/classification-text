@@ -181,6 +181,8 @@ def sta_result(predict,category,result,path):
         result_category = [result[k][0] for k in range(len(result)) if result[k][1]==i]
 
         hit = len(set(predict_category)&set(result_category))
+        if hit ==0:
+            continue
         precision = float('%.1f'%(hit/float(len(predict_category))*100))
         recall =  float('%.1f'%(hit/float(len(result_category))*100))
         F_1 = float('%.1f'%(2*precision*recall/(precision+recall)))
