@@ -170,6 +170,8 @@ def sta_result(predict,category,result,path):
     a,b,c=0,0,0
     csvfile = file(path,'wb')
     writer = csv.writer(csvfile)
+    print predict[:10]
+    print result[:10]
     print len([predict[j][0] for j in range(len(predict)) if predict[j][1]==10])
     writer.writerow(['category','precision(%)','recall(%)','recall(%)'])
     for i in range(10):
