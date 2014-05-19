@@ -79,6 +79,21 @@ def logistic_x():
     
 def sigmoid(inx):
     return 1.0/(1+np.exp(-inx))
+def calj(binary_y,h,m):
+    j = 0
+    for index in range(len(binary_y)):
+        if binary_y[index] == 1:
+            if h[index] == 0:
+                j += 50
+            else:
+                j += -np.log2(h[index])
+        else:
+            if h[index] == 1:
+                j += 50
+            else:
+                j += -np.log2(1-h[index])
+    j = j/float(m)
+    return j
 def logistic_own():
     train_x = nb.read('train_x')
     train_y = nb.read('train_y')
@@ -106,13 +121,14 @@ def logistic_own():
             else:
                 binary_y[index]=0
         weight = np.mat(np.ones((n+1,1)))
-        alpha = 0.001
-        maxitem = 200
+        alpha = 0.0001
+        maxitem = 100
         for k in range(maxitem):
             h = sigmoid(train_x*weight)
-            J = 1.0/m*(-binary_y.transpose()*np.log2(h)-(1-binary_y.transpose())*np.log2(1-h))
+            #我们在计算代价函数的时候,不能简单的用公式实现,应当进行判断
+            J = calj(binary_y,h,m)
+            #J = 1.0/m*(-binary_y.transpose()*np.log2(h)-(1-binary_y.transpose())*np.log2(1-h))
             error = h-binary_y
-            print J
             weight -= alpha*(train_x.transpose()*error)
         binary_predict = test_x*weight
         for index in range(len(binary_predict)):
